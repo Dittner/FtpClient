@@ -1,4 +1,4 @@
-package dittner.ftpClient {
+package de.dittner.ftpClient {
 public class FtpCmdState {
 	public function FtpCmdState() {}
 

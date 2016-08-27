@@ -1,4 +1,4 @@
-package dittner.ftpClient.utils {
+package de.dittner.ftpClient.utils {
 /**
  * @see: http://www.faqs.org/rfcs/rfc959.html
  */

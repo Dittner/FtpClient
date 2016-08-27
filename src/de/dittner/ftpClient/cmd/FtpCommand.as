@@ -1,7 +1,8 @@
-package dittner.ftpClient.cmd {
-import dittner.async.ProgressCommand;
-import dittner.ftpClient.FtpCmdState;
-import dittner.ftpClient.utils.ServerInfo;
+package de.dittner.ftpClient.cmd {
+import de.dittner.async.ProgressCommand;
+
+import de.dittner.ftpClient.FtpCmdState;
+import de.dittner.ftpClient.utils.ServerInfo;
 
 import flash.events.Event;
 import flash.events.IOErrorEvent;
@@ -11,6 +12,7 @@ import flash.net.Socket;
 
 public class FtpCommand extends ProgressCommand {
 	protected static const CRLF:String = "\r\n";
+	protected static const traceEnabled:Boolean = true;
 
 	public function FtpCommand(cmdSocket:Socket, serverInfo:ServerInfo, state:FtpCmdState) {
 		super();
@@ -35,7 +37,7 @@ public class FtpCommand extends ProgressCommand {
 		for each(var cmd:String in commands) {
 			if (cmd.length > 3) {
 				codeNum = uint(cmd.substr(0, 3) || 0);
-				trace(cmd);
+				if (traceEnabled) trace(cmd);
 				cmdFromServer(codeNum, cmd);
 			}
 		}
@@ -44,11 +46,11 @@ public class FtpCommand extends ProgressCommand {
 	protected function cmdFromServer(cmdNum:uint, cmd:String):void {}
 
 	protected function onConnectedToServer(e:Event):void {
-		trace('CONNECTED TO FTP');
+		if (traceEnabled) trace('CONNECTED TO FTP');
 	}
 
 	protected function onConnectionClosed(e:Event):void {
-		trace('CONNECTION CLOSED!!!');
+		if (traceEnabled) trace('CONNECTION CLOSED!!!');
 	}
 
 	protected function onSocketError(e:IOErrorEvent):void {

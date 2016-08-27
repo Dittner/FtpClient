@@ -1,8 +1,8 @@
-package dittner.ftpClient.cmd {
-import dittner.ftpClient.FtpCmdState;
-import dittner.ftpClient.utils.FtpClientCmd;
-import dittner.ftpClient.utils.FtpServerCmd;
-import dittner.ftpClient.utils.ServerInfo;
+package de.dittner.ftpClient.cmd {
+import de.dittner.ftpClient.FtpCmdState;
+import de.dittner.ftpClient.utils.FtpClientCmd;
+import de.dittner.ftpClient.utils.FtpServerCmd;
+import de.dittner.ftpClient.utils.ServerInfo;
 
 import flash.net.Socket;
 
@@ -18,12 +18,12 @@ public class AuthFtpCommand extends FtpCommand {
 	override protected function cmdFromServer(cmdNum:uint, cmd:String):void {
 		switch (cmdNum) {
 			case FtpServerCmd.SERVICE_READY:
-				trace("Client: USER " + serverInfo.user);
+				if(traceEnabled) trace("Client: USER " + serverInfo.user);
 				cmdSocket.writeUTFBytes(FtpClientCmd.USER + " " + serverInfo.user + CRLF);
 				cmdSocket.flush();
 				break;
 			case FtpServerCmd.USER_OK:
-				trace("Client: PASS " + "********");
+				if(traceEnabled) trace("Client: PASS " + "********");
 				cmdSocket.writeUTFBytes(FtpClientCmd.PASS + " " + serverInfo.password + CRLF);
 				cmdSocket.flush();
 				break;

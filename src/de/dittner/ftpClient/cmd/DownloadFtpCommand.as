@@ -1,12 +1,12 @@
-package dittner.ftpClient.cmd {
-import dittner.ftpClient.FtpCmdState;
-import dittner.ftpClient.utils.FtpClientCmd;
-import dittner.ftpClient.utils.FtpServerCmd;
-import dittner.ftpClient.utils.ServerInfo;
+package de.dittner.ftpClient.cmd {
+import de.dittner.ftpClient.FtpCmdState;
+import de.dittner.ftpClient.utils.FtpClientCmd;
+import de.dittner.ftpClient.utils.FtpServerCmd;
+import de.dittner.ftpClient.utils.ServerInfo;
 
 import flash.events.Event;
 import flash.events.IOErrorEvent;
-import flash.events.OutputProgressEvent;
+import flash.events.ProgressEvent;
 import flash.events.SecurityErrorEvent;
 import flash.filesystem.File;
 import flash.filesystem.FileMode;
@@ -14,8 +14,8 @@ import flash.filesystem.FileStream;
 import flash.net.Socket;
 import flash.utils.ByteArray;
 
-public class UploadFtpCommand extends FtpCommand {
-	public function UploadFtpCommand(file:File, cmdSocket:Socket, serverInfo:ServerInfo, state:FtpCmdState) {
+public class DownloadFtpCommand extends FtpCommand {
+	public function DownloadFtpCommand(file:File, cmdSocket:Socket, serverInfo:ServerInfo, state:FtpCmdState) {
 		super(cmdSocket, serverInfo, state);
 		this.file = file;
 	}
@@ -24,24 +24,23 @@ public class UploadFtpCommand extends FtpCommand {
 	private var fileStream:FileStream;
 	private var fileTotalBytesNum:Number = 0;
 	private var dataSocket:Socket;
-	private static const STREAM_BUFFER:uint = 1024 * 50;//50 Kb
 
 	override public function execute():void {
 		if (state.isAuthenticated) {
 			fileStream = new FileStream();
-			fileStream.open(file, FileMode.READ);
-			fileTotalBytesNum = fileStream.bytesAvailable;
+			fileStream.open(file, FileMode.WRITE);
+			fileStream.position = 0;
 
 			if (serverInfo.remoteDirPath) {
 				isClientCmdNavFolder = true;
-				trace("Client: CWD " + serverInfo.remoteDirPath);
+				if (traceEnabled) trace("Client: CWD " + serverInfo.remoteDirPath);
 				cmdSocket.writeUTFBytes(FtpClientCmd.CWD + " " + serverInfo.remoteDirPath + CRLF);
 				cmdSocket.flush();
 			}
 			else {
-				trace("Client: TYPE I");
+				if (traceEnabled) trace("Client: TYPE I");
 				cmdSocket.writeUTFBytes(FtpClientCmd.TYPE_BINARY + CRLF); //set data as binary
-				trace("Client: PASV");
+				if (traceEnabled) trace("Client: PASV");
 				cmdSocket.writeUTFBytes(FtpClientCmd.PASV + CRLF); //use passive mode
 				cmdSocket.flush();
 			}
@@ -51,6 +50,7 @@ public class UploadFtpCommand extends FtpCommand {
 		}
 	}
 
+	private static const BYTES_PATTERN:RegExp = /(\d*) bytes/;
 	private var isClientCmdNavFolder:Boolean = false;
 	override protected function cmdFromServer(cmdNum:uint, cmd:String):void {
 		switch (cmdNum) {
@@ -58,7 +58,7 @@ public class UploadFtpCommand extends FtpCommand {
 				if (isClientCmdNavFolder) {
 					isClientCmdNavFolder = false;
 					//create folder
-					trace("Client: MKD " + serverInfo.remoteDirPath);
+					if (traceEnabled) trace("Client: MKD " + serverInfo.remoteDirPath);
 					cmdSocket.writeUTFBytes(FtpClientCmd.MKD + " " + serverInfo.remoteDirPath + CRLF);
 					cmdSocket.flush();
 				}
@@ -66,15 +66,15 @@ public class UploadFtpCommand extends FtpCommand {
 				break;
 			case FtpServerCmd.FOLDER_CREATED:
 				//navigate to created folder
-				trace("Client: CWD " + serverInfo.remoteDirPath);
+				if (traceEnabled) trace("Client: CWD " + serverInfo.remoteDirPath);
 				cmdSocket.writeUTFBytes(FtpClientCmd.CWD + " " + serverInfo.remoteDirPath + CRLF);
 				cmdSocket.flush();
 				break;
 			case FtpServerCmd.FILE_ACTION_OK:
 				//set binary mode
-				trace("Client: TYPE I");
+				if (traceEnabled) trace("Client: TYPE I");
 				cmdSocket.writeUTFBytes(FtpClientCmd.TYPE_BINARY + CRLF); //set data as binary
-				trace("Client: PASV");
+				if (traceEnabled) trace("Client: PASV");
 				cmdSocket.writeUTFBytes(FtpClientCmd.PASV + CRLF); //use passive mode
 				cmdSocket.flush();
 				break;
@@ -99,24 +99,30 @@ public class UploadFtpCommand extends FtpCommand {
 				}
 				break;
 			case FtpServerCmd.FILE_STATUS_OK:
-				sendFileBytes();
+				if (traceEnabled) trace("Client: Reading File size: " + cmd);
+				//"150 Opening BINARY mode data connection for file.db (12293120 bytes)."
+				var regRes:Array = BYTES_PATTERN.exec(cmd);
+				fileTotalBytesNum = regRes.length <= 2 || isNaN(regRes[1]) ? regRes[1] : 0;
+				readFileBytes();
 				break;
 			case FtpServerCmd.DATA_CONN_CLOSE:
-				dispatchSuccess();
+				//ignore, we are waiting, while all data loaded
 				break;
 			case FtpServerCmd.CLOSING_CONTROL_CONN:
 				state.isConnectionClosed = true;
 				dispatchError("Connection is closed");
 				break;
 			default :
-				if (cmdNum >= 500) dispatchError(cmd);
-				else dispatchError("Unhandled cmd from server: " + cmdNum);
+				if (cmdNum >= 500)
+					dispatchError(cmd);
+				else
+					dispatchError("Unhandled cmd from server: " + cmdNum);
 		}
 	}
 
 	private function openDataSocket(host:String, port:int):void {
 		dataSocket = new Socket();
-		dataSocket.addEventListener(OutputProgressEvent.OUTPUT_PROGRESS, onDataSocketAnswered);
+		dataSocket.addEventListener(ProgressEvent.SOCKET_DATA, onDataSocketLoaded);
 		dataSocket.addEventListener(Event.CONNECT, onDataSocketConnected);
 		dataSocket.addEventListener(IOErrorEvent.IO_ERROR, onSocketError);
 		dataSocket.addEventListener(SecurityErrorEvent.SECURITY_ERROR, onSecurityError);
@@ -124,41 +130,41 @@ public class UploadFtpCommand extends FtpCommand {
 		dataSocket.connect(host, port);
 	}
 
-	private function onDataSocketAnswered(e:OutputProgressEvent):void {
-		if (e.bytesPending == 0) sendFileBytes();
+	private function onDataSocketLoaded(e:ProgressEvent):void {
+		readFileBytes();
 	}
 
 	protected function onDataSocketConnected(e:Event):void {
-		trace("Client: STOR " + file.nativePath);
-		cmdSocket.writeUTFBytes(FtpClientCmd.STOR + " " + file.name + CRLF);
+		if (traceEnabled) trace("Client: RETR " + file.nativePath);
+		cmdSocket.writeUTFBytes(FtpClientCmd.RETR + " " + file.name + CRLF);
 		cmdSocket.flush();
 	}
 
 	private var buffer:ByteArray = new ByteArray();
-	private function sendFileBytes():void {
+	private function readFileBytes():void {
+		dataSocket.readBytes(buffer, 0, buffer.bytesAvailable);
+		fileStream.writeBytes(buffer, 0, buffer.bytesAvailable);
 		buffer.clear();
-
-		if (fileStream.bytesAvailable <= 0) {
-			dataSocket.close();
-			setProgress(1);
-		}
-		else { //if something gets wrong and after first try there is still data available
-			//load fileStream data to byteArray
-			fileStream.readBytes(buffer, 0, fileStream.bytesAvailable < STREAM_BUFFER ? fileStream.bytesAvailable : STREAM_BUFFER);
-			dataSocket.writeBytes(buffer, 0, buffer.bytesAvailable); //save byteArray via data socket
-			dataSocket.flush();
-			setProgress(1 - fileStream.bytesAvailable / fileTotalBytesNum);
+		if (fileTotalBytesNum != 0) {
+			setProgress(fileStream.position / fileTotalBytesNum);
+			if (fileStream.position == fileTotalBytesNum)
+				dispatchSuccess();
 		}
 	}
 
 	override public function destroy():void {
 		super.destroy();
 		if (dataSocket) {
-			dataSocket.removeEventListener(OutputProgressEvent.OUTPUT_PROGRESS, onDataSocketAnswered);
+			dataSocket.removeEventListener(ProgressEvent.SOCKET_DATA, onDataSocketLoaded);
 			dataSocket.removeEventListener(Event.CONNECT, onDataSocketConnected);
 			dataSocket.removeEventListener(IOErrorEvent.IO_ERROR, onSocketError);
 			dataSocket.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, onSecurityError);
 			dataSocket.removeEventListener(Event.CLOSE, onConnectionClosed);
+			dataSocket = null;
+		}
+		if (fileStream) {
+			fileStream.close();
+			fileStream = null;
 		}
 	}
 }

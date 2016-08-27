@@ -1,6 +1,6 @@
-package dittner.ftpClient.cmd {
-import dittner.ftpClient.FtpCmdState;
-import dittner.ftpClient.utils.ServerInfo;
+package de.dittner.ftpClient.cmd {
+import de.dittner.ftpClient.FtpCmdState;
+import de.dittner.ftpClient.utils.ServerInfo;
 
 import flash.net.Socket;
 

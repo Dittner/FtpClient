@@ -2,7 +2,7 @@ package de.dittner.ftpClient.cmd {
 import de.dittner.async.ProgressCommand;
 
 import de.dittner.ftpClient.FtpCmdState;
-import de.dittner.ftpClient.utils.ServerInfo;
+import de.dittner.ftpClient.utils.IServerInfo;
 
 import flash.events.Event;
 import flash.events.IOErrorEvent;
@@ -14,7 +14,7 @@ public class FtpCommand extends ProgressCommand {
 	protected static const CRLF:String = "\r\n";
 	protected static const traceEnabled:Boolean = true;
 
-	public function FtpCommand(cmdSocket:Socket, serverInfo:ServerInfo, state:FtpCmdState) {
+	public function FtpCommand(cmdSocket:Socket, serverInfo:IServerInfo, state:FtpCmdState) {
 		super();
 		this.cmdSocket = cmdSocket;
 		this.serverInfo = serverInfo;
@@ -27,7 +27,7 @@ public class FtpCommand extends ProgressCommand {
 	}
 
 	protected var cmdSocket:Socket;
-	protected var serverInfo:ServerInfo;
+	protected var serverInfo:IServerInfo;
 	protected var state:FtpCmdState;
 
 	protected function onCmdFromServerReceived(e:ProgressEvent):void {

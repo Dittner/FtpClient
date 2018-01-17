@@ -5,7 +5,7 @@ import de.dittner.ftpClient.cmd.AuthFtpCommand;
 import de.dittner.ftpClient.cmd.DownloadFtpCommand;
 import de.dittner.ftpClient.cmd.QuitFtpCommand;
 import de.dittner.ftpClient.cmd.UploadFtpCommand;
-import de.dittner.ftpClient.utils.ServerInfo;
+import de.dittner.ftpClient.utils.IServerInfo;
 
 import flash.display.Stage;
 import flash.filesystem.File;
@@ -27,17 +27,31 @@ public class FtpClient {
 
 	private var uploadOp:CompositeCommand;
 	private var uploadCmdState:FtpCmdState;
-	public function upload(files:Array, serverInfo:ServerInfo):CompositeCommand {
+	public function upload(files:Array, serverInfo:IServerInfo):CompositeCommand {
 		if (uploadOp && uploadOp.isProcessing) throw new Error("Upload is processing!");
 		uploadCmdState = new FtpCmdState();
 		uploadOp = new CompositeCommand();
-		for (var i:int = 0; i < files.length; i++) {
-			var f:File = files[i];
-			if (!f.exists)
+
+		var i:int = 0;
+		var totalSize:Number = 0;
+		var curSize:Number = 0;
+		var f:File;
+
+		for (i = 0; i < files.length; i++) {
+			f = files[i];
+			if (!f.exists) {
 				uploadOp.dispatchError("Uploading file does not exist!");
-			uploadOp.addProgressOperation(AuthFtpCommand, i / files.length, cmdSocket, serverInfo, uploadCmdState);
-			uploadOp.addProgressOperation(UploadFtpCommand, 0.99 * (i + 1) / files.length, f, cmdSocket, serverInfo, uploadCmdState);
-			uploadOp.addProgressOperation(QuitFtpCommand, (i + 1) / files.length, cmdSocket, serverInfo, uploadCmdState);
+				return uploadOp;
+			}
+			totalSize += f.size;
+		}
+
+		for (i = 0; i < files.length; i++) {
+			f = files[i];
+			uploadOp.addProgressOperation(AuthFtpCommand, curSize / totalSize, cmdSocket, serverInfo, uploadCmdState);
+			curSize += f.size;
+			uploadOp.addProgressOperation(UploadFtpCommand, curSize / totalSize, f, cmdSocket, serverInfo, uploadCmdState);
+			uploadOp.addProgressOperation(QuitFtpCommand, curSize / totalSize, cmdSocket, serverInfo, uploadCmdState);
 		}
 
 		if (!serverInfo.host || !serverInfo.port || !serverInfo.user || !serverInfo.password)
@@ -50,7 +64,7 @@ public class FtpClient {
 
 	private var downloadOp:CompositeCommand;
 	private var downloadCmdState:FtpCmdState;
-	public function download(files:Array, serverInfo:ServerInfo):CompositeCommand {
+	public function download(files:Array, serverInfo:IServerInfo):CompositeCommand {
 		if (downloadOp && downloadOp.isProcessing) throw new Error("Download is processing!");
 		downloadCmdState = new FtpCmdState();
 		downloadOp = new CompositeCommand();

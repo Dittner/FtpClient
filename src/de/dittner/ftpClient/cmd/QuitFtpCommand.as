@@ -1,11 +1,11 @@
 package de.dittner.ftpClient.cmd {
 import de.dittner.ftpClient.FtpCmdState;
-import de.dittner.ftpClient.utils.ServerInfo;
+import de.dittner.ftpClient.utils.IServerInfo;
 
 import flash.net.Socket;
 
 public class QuitFtpCommand extends FtpCommand {
-	public function QuitFtpCommand(cmdSocket:Socket, serverInfo:ServerInfo, state:FtpCmdState) {
+	public function QuitFtpCommand(cmdSocket:Socket, serverInfo:IServerInfo, state:FtpCmdState) {
 		super(cmdSocket, serverInfo, state);
 	}
 

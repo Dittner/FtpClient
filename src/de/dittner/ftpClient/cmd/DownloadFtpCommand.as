@@ -2,7 +2,7 @@ package de.dittner.ftpClient.cmd {
 import de.dittner.ftpClient.FtpCmdState;
 import de.dittner.ftpClient.utils.FtpClientCmd;
 import de.dittner.ftpClient.utils.FtpServerCmd;
-import de.dittner.ftpClient.utils.ServerInfo;
+import de.dittner.ftpClient.utils.IServerInfo;
 
 import flash.events.Event;
 import flash.events.IOErrorEvent;
@@ -15,7 +15,7 @@ import flash.net.Socket;
 import flash.utils.ByteArray;
 
 public class DownloadFtpCommand extends FtpCommand {
-	public function DownloadFtpCommand(file:File, cmdSocket:Socket, serverInfo:ServerInfo, state:FtpCmdState) {
+	public function DownloadFtpCommand(file:File, cmdSocket:Socket, serverInfo:IServerInfo, state:FtpCmdState) {
 		super(cmdSocket, serverInfo, state);
 		this.file = file;
 	}
